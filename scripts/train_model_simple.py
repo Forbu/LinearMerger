@@ -45,6 +45,7 @@ class AirbnbDataset(Dataset):
         }
         
 dataloader = DataLoader(AirbnbDataset(train_data), batch_size=2048, shuffle=True)
+dataloader_test = DataLoader(AirbnbDataset(test_data), batch_size=2048, shuffle=False)
 
 class SimpleModel(pl.LightningModule):
     """
@@ -89,15 +90,34 @@ class SimpleModel(pl.LightningModule):
         x = torch.relu(self.fc5(x)) + x_saved
         x = self.fc6(x)
         return x
+    
+    def training_step(self, batch, batch_idx):
+        numerical_data, categorical_data, target = batch
+        output = self(numerical_data, categorical_data)
+        loss = nn.MSELoss()(output, target)
+        self.log('train_loss', loss)
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        numerical_data, categorical_data, target = batch
+        output = self(numerical_data, categorical_data)
+        loss = nn.MSELoss()(output, target)
+        self.log('val_loss', loss)
+        return loss
+    
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=1e-3)
+    
 
 # define the model
 model = SimpleModel(input_size=10, hidden_size=10, output_size=1)
 
 # define the trainer
-trainer = pl.Trainer(max_epochs=10)
+from lightning.pytorch.callbacks import EarlyStopping
+trainer = pl.Trainer(max_epochs=10, callbacks=[EarlyStopping(monitor='val_loss', patience=5)])
 
 # train the model
-trainer.fit(model, dataloader)
+trainer.fit(model, dataloader, dataloader_test)
 
 # save the model with a random hash
 import uuid
