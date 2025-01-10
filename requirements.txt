@@ -2,3 +2,5 @@ lightning
 torch
 pandas
 scikit-learn
+wandb
+pyarrow

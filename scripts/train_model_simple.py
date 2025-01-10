@@ -92,7 +92,7 @@ wandb.init(project="airbnb-price-prediction")
 wandb_logger = pl.pytorch.loggers.wandb.WandbLogger(project="airbnb-price-prediction")
 
 trainer = pl.Trainer(
-    max_epochs=10, callbacks=[EarlyStopping(monitor="val_loss", patience=5)], logger=wandb_logger,
+    max_epochs=10, logger=wandb_logger,
     gradient_clip_val=1.0
 )
 
