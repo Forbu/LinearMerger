@@ -34,10 +34,11 @@ The architecture change consists in such transformation :
 
 ### First results
 
-Using triangular mask on the weight matrix of the linearmerger layer, we can see that the performance of the model is better than the simple average of the two models.
-Yet this does very good results compare to the simple average of the two models.
+We observe an improvment in model merging compare to classic Linear layer :
 
-![Results](images/merge_performance.png)
+![Results](images/improvment.png)
+
+The average of the two models based on LinearMerge layer is better than the simple average of the two models based on Linear layer.
 
 ### Application
 
