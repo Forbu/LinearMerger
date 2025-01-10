@@ -3,6 +3,7 @@ Simple script to train a model on the preprocess merged data
 """
 
 import pandas as pd
+import numpy as np
 import torch
 from typing import List
 from torch import nn
@@ -10,115 +11,95 @@ from torch.utils.data import DataLoader, Dataset
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-import lighthning as pl
+import lightning as pl
 
+# define the trainer
+from lightning.pytorch.callbacks import EarlyStopping
+import linearmerge.simple_model as simple_model
 
 # Load the data
-data = pd.read_parquet("../data/merged_data.parquet")
+data = pd.read_parquet("data/merged_data.parquet")
+
+# drop nan
+data = data.dropna()
+
+print("number of rows", len(data))
 
 # Split the data into training and testing sets
 train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
+
 
 class AirbnbDataset(Dataset):
     def __init__(self, data: pd.DataFrame):
         self.data = data
 
+        # random shuffl
+        self.data = self.data.sample(frac=1).reset_index(drop=True)
+
         # separate the data into categorical and numerical data (int for categorical, float for numerical)
-        self.categorical_data = data.select_dtypes(include=['category', 'int']).columns
-        self.numerical_data = data.select_dtypes(include=['float']).columns
-        
-        self.dim_input = len(self.categorical_data) + len(self.numerical_data)
+        self.categorical_data = data.select_dtypes(include=["category", "int8"])
+        self.numerical_data = data.select_dtypes(include=["float"])
+
+        self.dim_numerical = len(self.numerical_data.columns) - 1 # we remove the target later
+        self.embedding_nb_categories = [
+            np.max(self.categorical_data[col]) + 1 for col in self.categorical_data.columns
+        ]
 
         # now in numerical data, remove the target (price)
-        target = 'price'
-        self.target = self.numerical_data.pop(target)
+        target = "price"
+        self.numerical_data = self.numerical_data.drop(target, axis=1)
 
+        self.target = self.data[target] / 1000.
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return {
-            'categorical_data': self.categorical_data.iloc[idx],
-            'numerical_data': self.numerical_data.iloc[idx],
-            'target': self.target.iloc[idx]
-        }
-        
-dataloader = DataLoader(AirbnbDataset(train_data), batch_size=2048, shuffle=True)
-dataloader_test = DataLoader(AirbnbDataset(test_data), batch_size=2048, shuffle=False)
 
-class SimpleModel(pl.LightningModule):
-    """
-    A model with 6 layers:
-    - 1 input layer
-    - 4 hidden layers
-    - 1 output layer
-    """
-    def __init__(self, dim_numerical: int, dim_categorical: List[str], dim_projective: int, hidden_size: int, output_size: int):
-        super(SimpleModel, self).__init__()
-        self.fc1 = nn.Linear((dim_numerical + dim_categorical) * dim_projective, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.fc3 = nn.Linear(hidden_size, hidden_size)
-        self.fc4 = nn.Linear(hidden_size, hidden_size)
-        self.fc5 = nn.Linear(hidden_size, hidden_size)
-        self.fc6 = nn.Linear(hidden_size, output_size)
-    
-        # batch norm for numerical data
-        self.batch_norm_numerical = nn.BatchNorm1d(dim_numerical)
-        
-        # embedding for categorical data
-        self.dict_embedding = nn.ModuleDict({
-            key: nn.Embedding(dim_cate, dim_projective) for key, dim_cate in enumerate(dim_categorical)
-        })
-    
-    def forward(self, numerical_data: torch.Tensor, categorical_data: torch.Tensor):
-        
-        # apply batch norm to numerical data
-        numerical_data = self.batch_norm_numerical(numerical_data)
-        
-        # apply embedding to categorical data
-        categorical_data = torch.cat([self.dict_embedding[key](categorical_data[:, i]) for key, i in enumerate(categorical_data.T)], dim=1)
-        
-        # concatenate numerical and categorical data
-        x = torch.cat([numerical_data, categorical_data], dim=1)
-        
-        x = torch.relu(self.fc1(x))
-        x_saved = x.clone()
-        x = torch.relu(self.fc2(x))
-        x = torch.relu(self.fc3(x))
-        x = torch.relu(self.fc4(x))
-        x = torch.relu(self.fc5(x)) + x_saved
-        x = self.fc6(x)
-        return x
-    
-    def training_step(self, batch, batch_idx):
-        numerical_data, categorical_data, target = batch
-        output = self(numerical_data, categorical_data)
-        loss = nn.MSELoss()(output, target)
-        self.log('train_loss', loss)
-        return loss
-    
-    def validation_step(self, batch, batch_idx):
-        numerical_data, categorical_data, target = batch
-        output = self(numerical_data, categorical_data)
-        loss = nn.MSELoss()(output, target)
-        self.log('val_loss', loss)
-        return loss
-    
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-3)
-    
+        result_dict = {
+            "categorical_data": self.categorical_data.iloc[idx].values,
+            "numerical_data": self.numerical_data.iloc[idx].values,
+            "target": self.target.iloc[idx],
+        }
+
+        return result_dict
+
+
+train_dataset = AirbnbDataset(train_data)
+dataloader = DataLoader(train_dataset, batch_size=2048, shuffle=True, drop_last=True) # cutting the final batch (acceptable)
+
+
+
+test_dataset = AirbnbDataset(test_data)
+dataloader_test = DataLoader(test_dataset, batch_size=2048, shuffle=False, drop_last=True) # cutting the final batch (acceptable)
+
+
+
+
+torch.manual_seed(42)
 
 # define the model
-model = SimpleModel(input_size=10, hidden_size=10, output_size=1)
+model = simple_model.SimpleModel(
+    dim_numerical=train_dataset.dim_numerical,
+    embedding_nb_categories=train_dataset.embedding_nb_categories,
+    dim_projective=10,
+    hidden_size=128,
+    output_size=1,
+)
 
-# define the trainer
-from lightning.pytorch.callbacks import EarlyStopping
-trainer = pl.Trainer(max_epochs=10, callbacks=[EarlyStopping(monitor='val_loss', patience=5)])
+import wandb
+wandb.init(project="airbnb-price-prediction")
+wandb_logger = pl.pytorch.loggers.wandb.WandbLogger(project="airbnb-price-prediction")
+
+trainer = pl.Trainer(
+    max_epochs=10, callbacks=[EarlyStopping(monitor="val_loss", patience=5)], logger=wandb_logger,
+    gradient_clip_val=1.0
+)
 
 # train the model
 trainer.fit(model, dataloader, dataloader_test)
 
 # save the model with a random hash
 import uuid
-torch.save(model.state_dict(), f"simple_model_{uuid.uuid4()}.pth")
+
+torch.save(model.state_dict(), f"models/simple_model_{uuid.uuid4()}.pth")

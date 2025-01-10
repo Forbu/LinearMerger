@@ -21,11 +21,30 @@ The problem now is that if you get two different models, you can't average them 
 The big hypothesis of neural networks training is that converge to the same solution MODULO the symmetries of the network.
 
 
-##### The solution
+### The solution
 
 The solution is to use the linearmerger layer instead of the classic dense / linear layer.
 The linearmerger layer is a triangular matrix that will be used to merge / average two layers / models.
 
 The idea is that imposing a triangular structure to the matrix will break the symetry of the network and make the two models different.
+
+The architecture change consists in such transformation :
+
+![Example](images/triangular.png)
+
+### First results
+
+Using triangular mask on the weight matrix of the linearmerger layer, we can see that the performance of the model is better than the simple average of the two models.
+Yet this does very good results compare to the simple average of the two models.
+
+![Results](images/merge_performance.png)
+
+### Application
+
+Such architecture modification can enhance the merging power of the model and could improve applications such as
+
+- federated learning (model can be merged on the server instead of simply averaging the gradiants)
+
+
 
 
