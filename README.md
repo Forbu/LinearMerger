@@ -36,9 +36,10 @@ The architecture change consists in such transformation :
 
 We observe an improvment in model merging compare to classic Linear layer :
 
-![Results](images/improvment.png)
+![Results](images/true_results.png)
 
 The average of the two models based on LinearMerge layer is better than the simple average of the two models based on Linear layer.
+But yet it is not satisfying (there is still a lot of difference).
 
 ### Application
 

@@ -7,6 +7,7 @@ from linearmerge.linearmerge import LinearMerger
 
 import numpy as np
 
+
 class LinearMergeModel(pl.LightningModule):
     """
     A model with 6 layers:
@@ -22,29 +23,25 @@ class LinearMergeModel(pl.LightningModule):
         dim_projective: int,
         hidden_size: int,
         output_size: int,
-        permute_order= None,
+        permute_order=None,
     ):
         super(LinearMergeModel, self).__init__()
 
         # generate random permute order
         torch.manual_seed(42)
-        list_permute_order = [torch.randperm(hidden_size) for _ in range(2)]
 
         in_dim = dim_numerical + len(embedding_nb_categories) * dim_projective
         out_dim = hidden_size
 
-        self.fc1 = LinearMerger(
-            in_dim, out_dim,
-            permute_order=torch.randperm(in_dim)
-        )
+        self.fc1 = LinearMerger(in_dim, out_dim, permute_order_seed=46)
 
-        self.fc2 = LinearMerger(hidden_size, hidden_size, permute_order=list_permute_order[0])
-        self.fc3 = LinearMerger(hidden_size, hidden_size, permute_order=list_permute_order[1])
-       
+        self.fc2 = LinearMerger(hidden_size, hidden_size, permute_order_seed=79)
+        self.fc3 = LinearMerger(hidden_size, hidden_size, permute_order_seed=90)
+
         self.fc6 = nn.Linear(hidden_size, output_size)
 
         # random seed but different every time
-        random_seep = 14
+        random_seep = np.random.randint(0, 1000000)
         torch.manual_seed(random_seep)
 
         print(f"Random seed: {random_seep}")
@@ -88,7 +85,11 @@ class LinearMergeModel(pl.LightningModule):
         return x
 
     def training_step(self, batch, batch_idx):
-        numerical_data, categorical_data, target = batch["numerical_data"], batch["categorical_data"], batch["target"]
+        numerical_data, categorical_data, target = (
+            batch["numerical_data"],
+            batch["categorical_data"],
+            batch["target"],
+        )
 
         numerical_data = numerical_data.float()
         categorical_data = categorical_data.long()
@@ -100,7 +101,11 @@ class LinearMergeModel(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        numerical_data, categorical_data, target = batch["numerical_data"], batch["categorical_data"], batch["target"]
+        numerical_data, categorical_data, target = (
+            batch["numerical_data"],
+            batch["categorical_data"],
+            batch["target"],
+        )
 
         numerical_data = numerical_data.float()
         categorical_data = categorical_data.long()
@@ -112,7 +117,11 @@ class LinearMergeModel(pl.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        numerical_data, categorical_data, target = batch["numerical_data"], batch["categorical_data"], batch["target"]
+        numerical_data, categorical_data, target = (
+            batch["numerical_data"],
+            batch["categorical_data"],
+            batch["target"],
+        )
 
         numerical_data = numerical_data.float()
         categorical_data = categorical_data.long()
@@ -125,4 +134,3 @@ class LinearMergeModel(pl.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-3)
-

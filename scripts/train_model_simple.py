@@ -64,26 +64,22 @@ class AirbnbDataset(Dataset):
 
         return result_dict
 
-
 train_dataset = AirbnbDataset(train_data)
 dataloader = DataLoader(train_dataset, batch_size=2048, shuffle=True, drop_last=True) # cutting the final batch (acceptable)
-
-
 
 test_dataset = AirbnbDataset(test_data)
 dataloader_test = DataLoader(test_dataset, batch_size=2048, shuffle=False, drop_last=True) # cutting the final batch (acceptable)
 
-
-
-
-torch.manual_seed(42)
+# random seed but different every time
+random_seep = np.random.randint(0, 1000000)
+torch.manual_seed(random_seep)
 
 # define the model
 model = simple_model.SimpleModel(
     dim_numerical=train_dataset.dim_numerical,
     embedding_nb_categories=train_dataset.embedding_nb_categories,
     dim_projective=10,
-    hidden_size=128,
+    hidden_size=256,
     output_size=1,
 )
 
@@ -92,7 +88,7 @@ wandb.init(project="airbnb-price-prediction")
 wandb_logger = pl.pytorch.loggers.wandb.WandbLogger(project="airbnb-price-prediction")
 
 trainer = pl.Trainer(
-    max_epochs=10, logger=wandb_logger,
+    max_epochs=20, logger=wandb_logger,
     gradient_clip_val=1.0
 )
 

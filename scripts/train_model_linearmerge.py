@@ -80,7 +80,7 @@ model = linearmerge_model.LinearMergeModel(
     dim_numerical=train_dataset.dim_numerical,
     embedding_nb_categories=train_dataset.embedding_nb_categories,
     dim_projective=10,
-    hidden_size=128,
+    hidden_size=256,
     output_size=1,
 )
 
@@ -89,7 +89,7 @@ wandb.init(project="airbnb-price-prediction")
 wandb_logger = pl.pytorch.loggers.wandb.WandbLogger(project="airbnb-price-prediction")
 
 trainer = pl.Trainer(
-    max_epochs=10, logger=wandb_logger, gradient_clip_val=1.0
+    max_epochs=20, logger=wandb_logger, gradient_clip_val=1.0
 )
 
 # train the model

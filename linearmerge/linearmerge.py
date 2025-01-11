@@ -10,7 +10,7 @@ class LinearMerger(nn.Module):
     """
     Break symetries in neural networks weights.
     """
-    def __init__(self, in_dim, out_dim, bias=True, random_rows=True, permute_order=None):
+    def __init__(self, in_dim, out_dim, bias=True, random_rows=True, permute_order_seed=None):
         super(LinearMerger, self).__init__()
         self.in_dim = in_dim
         self.out_dim = out_dim
@@ -19,20 +19,17 @@ class LinearMerger(nn.Module):
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_dim))
 
-
         # compute a triangular mask
         mask = (
             torch.ones(out_dim, in_dim)
         )
 
+        torch.manual_seed(permute_order_seed)
         # if we want to randomize the rows of the mask
-        if random_rows and permute_order is None:
-            mask[torch.randperm(out_dim).tolist(), torch.arange(in_dim)] = 0
-        elif permute_order is not None:
-            mask[permute_order.tolist(), torch.arange(in_dim)] = 0
+        if random_rows:
+            for _ in range(40):
+                mask[torch.randperm(in_dim).tolist(), torch.arange(in_dim)] = 0
 
-        print(torch.sum(mask == 0))
-        
         # we register the mask as a buffer so that it is moved to the device along with the module
         self.register_buffer("mask", mask)
 

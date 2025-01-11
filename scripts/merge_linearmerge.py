@@ -108,7 +108,7 @@ for time_value in time_values:
         dim_numerical=train_dataset.dim_numerical,
         embedding_nb_categories=train_dataset.embedding_nb_categories,
         dim_projective=10,
-        hidden_size=128,
+        hidden_size=256,
         output_size=1,
     )
 
